@@ -1456,6 +1456,7 @@ class SDN_ContainerEventManager
             
             containerObj.SetPosition(containerWorldPos);
             containerObj.SetOrientation(containerWorldOri);
+            containerObj.SetOrientation(containerObj.GetOrientation());
             containerObj.Update();
             
             SetIDSafe(containerObj, eventID);
@@ -1505,6 +1506,7 @@ class SDN_ContainerEventManager
             {
                 crate.SetPosition(finalMatCr[3]);
                 crate.SetOrientation(Math3D.MatrixToAngles(finalMatCr));
+                crate.SetOrientation(crate.GetOrientation());
                 crate.Update();
                 
                 dBodyActive(crate, ActiveState.INACTIVE);
@@ -1602,11 +1604,10 @@ class SDN_ContainerEventManager
             
             if (obj)
             {
-                if (!tmpl.ClassName.Contains(".p3d"))
-                {
-                    obj.SetPosition(finalPos);
-                    obj.SetOrientation(finalOri);
-                }
+                obj.SetPosition(finalPos);
+                obj.SetOrientation(finalOri);
+                obj.SetOrientation(obj.GetOrientation());
+
                 obj.Update(); 
                 
                 if (obj.IsInherited(ItemBase))
