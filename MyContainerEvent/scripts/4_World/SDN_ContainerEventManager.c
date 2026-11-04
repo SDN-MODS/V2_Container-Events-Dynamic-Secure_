@@ -1358,7 +1358,7 @@ class SDN_ContainerEventManager
 
         vector anchorOri = loc.Orientation;
 
-        if (anchorOri == "0 0 0" || anchorOri == "")
+        if (anchorOri == "0 0 0")
         {
             anchorOri[0] = Math.RandomFloat(0, 360);
         }
@@ -1377,13 +1377,15 @@ class SDN_ContainerEventManager
         vector vNS = pN - pS;
         vector vEW = pE - pW;
 
-        // Vetor Normal da superfície (produto vetorial das direções cruzadas normalizadas)
-        vector surfaceNormal = vNS.Cross(vEW).Normalized();
+        // Vetor Normal da superfície: (Cross Product nativo matematicamente)
+        vector surfaceNormal = Vector(
+            (vNS[1]*vEW[2]) - (vNS[2]*vEW[1]),
+            (vNS[2]*vEW[0]) - (vNS[0]*vEW[2]),
+            (vNS[0]*vEW[1]) - (vNS[1]*vEW[0])
+        ).Normalized();
 
-        // Direção de Yaw que desejamos (usando matriz temporária para extrair eixo Z direcional)
-        vector tempMat[4];
-        Math3D.YawPitchRollMatrix(Vector(anchorOri[0], 0, 0), tempMat);
-        vector desiredDir = tempMat[2]; // Forward vector
+        // Direção de Yaw que desejamos (Vetor Forward Z-axis extraído diretamente dos ângulos)
+        vector desiredDir = vector.AnglesToVector(Vector(anchorOri[0], 0, 0));
 
         // Calcula nova matriz baseada na direção e na inclinação do chão
         vector finalAnchorMat[4];
