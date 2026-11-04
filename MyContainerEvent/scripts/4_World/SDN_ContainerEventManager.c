@@ -1590,12 +1590,13 @@ class SDN_ContainerEventManager
             Math3D.MatrixMultiply4(targetSpawnMat, localOffsetMat, finalMat);
 
             vector finalPos = finalMat[3];
+            vector finalOri = Math3D.MatrixToAngles(finalMat);
 
             Object obj = null;
             if (tmpl.ClassName.Contains(".p3d")) 
             {
                 // A Engine requer essa chamada especifica para carregar modelos p3d brutos sem Classe registrada (CfgVehicles).
-                obj = GetGame().CreateStaticObjectUsingP3D(tmpl.ClassName, finalPos, "0 0 0", 1.0, false);
+                obj = GetGame().CreateStaticObjectUsingP3D(tmpl.ClassName, finalPos, finalOri, 1.0, false);
             } 
             else 
             {
@@ -1604,7 +1605,10 @@ class SDN_ContainerEventManager
             
             if (obj)
             {
-                obj.SetTransform(finalMat);
+                obj.SetPosition(finalPos);
+                obj.SetOrientation(finalOri);
+                obj.SetOrientation(obj.GetOrientation());
+
                 obj.Update();
                 
                 if (obj.IsInherited(ItemBase))
