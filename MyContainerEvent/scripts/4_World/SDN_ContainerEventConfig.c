@@ -8,6 +8,7 @@ class SDN_EventLocation
 {
     string Name;
     vector Coordinates;
+    vector Orientation; // {Yaw, Pitch, Roll} (Yaw = Direção/Rotação)
 }
 
 class SDN_EventLootItem

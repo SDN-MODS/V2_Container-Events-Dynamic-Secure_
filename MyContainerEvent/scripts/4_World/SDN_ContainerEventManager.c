@@ -1355,8 +1355,41 @@ class SDN_ContainerEventManager
         // A âncora do evento no mundo real (representa o SarmaCan no chão)
         vector anchorPos = loc.Coordinates;
         anchorPos[1] = GetGame().SurfaceY(anchorPos[0], anchorPos[2]);
-        vector anchorOri = "0 0 0";
-        anchorOri[0] = Math.RandomFloat(0, 360);
+
+        vector anchorOri = loc.Orientation;
+
+        if (anchorOri == "0 0 0" || anchorOri == "")
+        {
+            anchorOri[0] = Math.RandomFloat(0, 360);
+        }
+
+        // --- CÁLCULO DE ALINHAMENTO DO TERRENO (SLOPE ALIGNMENT) ---
+        // Pega 4 pontos a 1 metro de distância do centro para criar 2 vetores cruzados
+        float pX = anchorPos[0];
+        float pZ = anchorPos[2];
+        float d = 1.0;
+
+        vector pN = Vector(pX, GetGame().SurfaceY(pX, pZ + d), pZ + d);
+        vector pS = Vector(pX, GetGame().SurfaceY(pX, pZ - d), pZ - d);
+        vector pE = Vector(pX + d, GetGame().SurfaceY(pX + d, pZ), pZ);
+        vector pW = Vector(pX - d, GetGame().SurfaceY(pX - d, pZ), pZ);
+
+        vector vNS = pN - pS;
+        vector vEW = pE - pW;
+
+        // Vetor Normal da superfície (produto vetorial das direções cruzadas normalizadas)
+        vector surfaceNormal = vNS.Cross(vEW).Normalized();
+
+        // Direção de Yaw que desejamos (usando matriz temporária para extrair eixo Z direcional)
+        vector tempMat[4];
+        Math3D.YawPitchRollMatrix(Vector(anchorOri[0], 0, 0), tempMat);
+        vector desiredDir = tempMat[2]; // Forward vector
+
+        // Calcula nova matriz baseada na direção e na inclinação do chão
+        vector finalAnchorMat[4];
+        Math3D.DirectionAndUpMatrix(desiredDir, surfaceNormal, finalAnchorMat);
+        anchorOri = Math3D.MatrixToAngles(finalAnchorMat);
+        // -------------------------------------------------------------
         
         newEvent.LocationName = loc.Name;
         newEvent.Position = anchorPos;
