@@ -1201,6 +1201,18 @@ class CfgSoundSets
 		};
 		volumeFactor=1;
 	};
+	class SDN_ContainerEvent_Crash_SoundSet
+	{
+		soundShaders[]=
+		{
+			"SDN_ContainerEvent_Crash_SoundShader"
+		};
+		volumeFactor=1;
+		spatial=1;
+		doppler=0;
+		loop=0;
+		distanceFilterInfo="defaultDistanceFilterInfo";
+	};
 };
 class CfgSoundShaders
 {
@@ -1218,6 +1230,23 @@ class CfgSoundShaders
 			
 			{
 				"MyContainerEvent\Sounds\Sound01",
+				1
+			}
+		};
+	};
+	class SDN_ContainerEvent_Crash_SoundShader_Base
+	{
+		samples[]={};
+		frequency=1;
+		range=1000;
+		volume=1.0;
+	};
+	class SDN_ContainerEvent_Crash_SoundShader: SDN_ContainerEvent_Crash_SoundShader_Base
+	{
+		samples[]=
+		{
+			{
+				"MyContainerEvent\Sounds\Sound_Event_Container.ogg",
 				1
 			}
 		};

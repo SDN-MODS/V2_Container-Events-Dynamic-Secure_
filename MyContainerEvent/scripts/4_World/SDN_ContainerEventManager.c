@@ -1602,6 +1602,12 @@ class SDN_ContainerEventManager
             SDN_MarkerManager.AddEventMarker(loc.Name, anchorPos, m_Config.MarkerSettings);
         }
 
+        // [SDN] Disparar áudio 3D da colisão/queda (Raio de 1km conforme Config.cpp)
+        if (!isRestoration && m_Config.EnableSound)
+        {
+            SEffectManager.PlaySound("SDN_ContainerEvent_Crash_SoundSet", anchorPos);
+        }
+
         Log("Event Active and Linked at " + loc.Name + " [ID: " + eventID + "]");
     }
 
