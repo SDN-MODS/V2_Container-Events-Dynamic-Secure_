@@ -92,7 +92,8 @@ class ActiveEventInstance
 
 enum SDN_NotificationRPC
 {
-    SDN_EVENT_MSG = 8410225 
+    SDN_EVENT_MSG = 8410225,
+    SDN_EVENT_CRASH_SOUND = 8410227
 }
 
 class SDN_ContainerEventManager
@@ -1605,7 +1606,17 @@ class SDN_ContainerEventManager
         // [SDN] Disparar áudio 3D da colisão/queda (Raio de 1km conforme Config.cpp)
         if (!isRestoration && m_Config.EnableSound)
         {
-            SEffectManager.PlaySound("SDN_ContainerEvent_Crash_SoundSet", anchorPos);
+            array<Man> players = new array<Man>;
+            GetGame().GetPlayers(players);
+            foreach (Man p : players)
+            {
+                if (p && p.GetIdentity())
+                {
+                    ScriptRPC rpcSound = new ScriptRPC();
+                    rpcSound.Write(anchorPos);
+                    rpcSound.Send(p, SDN_NotificationRPC.SDN_EVENT_CRASH_SOUND, true, p.GetIdentity());
+                }
+            }
         }
 
         Log("Event Active and Linked at " + loc.Name + " [ID: " + eventID + "]");

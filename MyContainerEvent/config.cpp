@@ -1246,7 +1246,7 @@ class CfgSoundShaders
 		samples[]=
 		{
 			{
-				"MyContainerEvent\Sounds\Sound_Event_Container.ogg",
+				"MyContainerEvent\Sounds\Sound_Event_Container",
 				1
 			}
 		};

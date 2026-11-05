@@ -43,5 +43,15 @@ modded class PlayerBase
             // Caso dê erro de compilação futuramente por falta do mod, avise o dono do servidor para usar VPP.
             NotificationSystem.AddNotificationExtended(time, title, text, icon);
         }
+        else if (rpc_type == 8410227)
+        {
+            vector soundPos;
+            if (!ctx.Read(soundPos)) { return; }
+
+            if (GetGame().GetPlayer())
+            {
+                SEffectManager.PlaySound("SDN_ContainerEvent_Crash_SoundSet", soundPos);
+            }
+        }
     }
 }
