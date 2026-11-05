@@ -83,7 +83,18 @@ class ActiveEventInstance
         {
             foreach (Object sc : SceneObjects)
             {
-                if (sc) GetGame().ObjectDelete(sc);
+                if (sc)
+                {
+                    ItemBase sc_ib = ItemBase.Cast(sc);
+                    if (sc_ib)
+                    {
+                        // Descongela a física e força sync de rede antes de apagar,
+                        // evitando Network Ghosting (ítens flutuando no client).
+                        dBodyDynamic(sc_ib, true);
+                        dBodyActive(sc_ib, ActiveState.ACTIVE);
+                    }
+                    GetGame().ObjectDelete(sc);
+                }
             }
         }
         SceneObjects.Clear();
