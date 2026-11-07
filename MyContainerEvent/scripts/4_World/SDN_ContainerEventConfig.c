@@ -94,8 +94,12 @@ class SDN_MarkerSettings
 // --- CONFIGURAÇÃO PRINCIPAL (JSON) ---
 class SDN_ContainerEventConfig
 {
+    // [SDN] Versão do arquivo de configuração (gerenciada pelo mod; usada para backup automático nas atualizações)
+    string ConfigVersion;
+
     int EventActive;
     bool EnableSound;
+    bool EnableNotifications; // true = mostra as notificações do evento aos jogadores no jogo
     int ServerTimeOffset;
     
     // [SDN] Webhook do Discord
@@ -146,8 +150,10 @@ class SDN_ContainerEventConfig
         RestartTimes = new array<string>;
         MarkerSettings = new SDN_MarkerSettings();
         
+        ConfigVersion = "";
         EventActive = 1;
         EnableSound = true;
+        EnableNotifications = true; // padrão para configs antigas que ainda não têm esta opção
         ServerTimeOffset = 0;
         
         DiscordWebhookURL = "";

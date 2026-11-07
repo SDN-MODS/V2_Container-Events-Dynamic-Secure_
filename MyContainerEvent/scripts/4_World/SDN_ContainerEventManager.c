@@ -43,6 +43,7 @@ class ActiveEventInstance
     
     ref array<EntityAI> Zombies;
     ref array<Object> SceneObjects;
+    ref array<vector> P3DPositions; // posições dos objetos .p3d estáticos (limpeza de fantasmas nos clientes)
     bool IsActive;      
     bool IsCompleted;   
     float EventTimer;   
@@ -53,6 +54,7 @@ class ActiveEventInstance
     {
         Zombies = new array<EntityAI>;
         SceneObjects = new array<Object>;
+        P3DPositions = new array<vector>;
         IsActive = false;
         IsCompleted = false;
         EventTimer = 0;
@@ -98,13 +100,44 @@ class ActiveEventInstance
             }
         }
         SceneObjects.Clear();
+
+        // Objetos .p3d estáticos (CreateStaticObjectUsingP3D) podem continuar "fantasmas" nos clientes que
+        // estão por perto quando o servidor os apaga. Avisamos os clientes para removerem a cópia local.
+        SendP3DCleanupToClients();
+        P3DPositions.Clear();
+    }
+
+    void SendP3DCleanupToClients()
+    {
+        if (!GetGame().IsServer()) return;
+        if (!P3DPositions || P3DPositions.Count() == 0) return;
+
+        array<Man> cleanupPlayers = new array<Man>;
+        GetGame().GetPlayers(cleanupPlayers);
+
+        foreach (Man cleanupPlayer : cleanupPlayers)
+        {
+            if (cleanupPlayer && cleanupPlayer.GetIdentity())
+            {
+                ScriptRPC cleanupRpc = new ScriptRPC();
+                cleanupRpc.Write(P3DPositions.Count());
+
+                foreach (vector p3dPos : P3DPositions)
+                {
+                    cleanupRpc.Write(p3dPos);
+                }
+
+                cleanupRpc.Send(cleanupPlayer, SDN_NotificationRPC.SDN_EVENT_CLEANUP_P3D, true, cleanupPlayer.GetIdentity());
+            }
+        }
     }
 }
 
 enum SDN_NotificationRPC
 {
     SDN_EVENT_MSG = 8410225,
-    SDN_EVENT_CRASH_SOUND = 8410227
+    SDN_EVENT_CRASH_SOUND = 8410227,
+    SDN_EVENT_CLEANUP_P3D = 8410228
 }
 
 class SDN_ContainerEventManager
@@ -134,7 +167,16 @@ class SDN_ContainerEventManager
     const string CONFIG_ROOT = "$profile:SDN_MODS/ContainerEvent";
     const string CONFIG_PATH = "$profile:SDN_MODS/ContainerEvent/EventConfig.json";
     const string STATE_PATH = "$profile:SDN_MODS/ContainerEvent/EventState.json";
-    const string LOG_PATH = "$profile:SDN_MODS/ContainerEvent/EventLog.txt";
+
+    // [SDN] Logs centralizados: SDN_MODS/SDN_Logs/SDN_ContainerEvent_Logs
+    const string LOG_ROOT = "$profile:SDN_MODS/SDN_Logs";
+    const string LOG_FOLDER = "$profile:SDN_MODS/SDN_Logs/SDN_ContainerEvent_Logs";
+    const string LOG_PATH = "$profile:SDN_MODS/SDN_Logs/SDN_ContainerEvent_Logs/EventLog.txt";
+
+    // [SDN] Backup automático do EventConfig.json quando a versão do mod muda.
+    // AUMENTE esta versão sempre que adicionar/remover/alterar campos da configuração.
+    const string CONFIG_VERSION = "1.1.0";
+    const string BACKUP_ROOT = "$profile:SDN_MODS/ContainerEvent/Backups";
 
     const string ICON_PATH = "MyContainerEvent/data/gui/icon_containe_event.edds";
 
@@ -161,6 +203,16 @@ class SDN_ContainerEventManager
         if (!FileExist(CONFIG_ROOT))
         {
             MakeDirectory(CONFIG_ROOT);
+        }
+
+        if (!FileExist(LOG_ROOT))
+        {
+            MakeDirectory(LOG_ROOT);
+        }
+
+        if (!FileExist(LOG_FOLDER))
+        {
+            MakeDirectory(LOG_FOLDER);
         }
         
         LoadConfig();
@@ -308,7 +360,9 @@ class SDN_ContainerEventManager
     {
         m_Config = new SDN_ContainerEventConfig();
         m_Config.EventActive = 1;
+        m_Config.ConfigVersion = CONFIG_VERSION;
         m_Config.EnableSound = true;
+        m_Config.EnableNotifications = true;
         m_Config.ServerTimeOffset = 0;
         
         m_Config.DiscordWebhookURL = "";
@@ -1008,19 +1062,111 @@ class SDN_ContainerEventManager
         m_SceneTemplate.Insert(new SDN_SceneObjectTemplate("DZ\\weapons\\ammunition\\00buck_10roundbox.p3d", "4449.643555 341.550934 10252.661133", "0.707818568 -0.000000015 0.000000047", true));
     }
 
+    // Copia o EventConfig.json atual (linha a linha, conteúdo original) para a pasta Backups.
+    // Retorna o caminho do backup, ou "" se falhar.
+    string BackupConfigFile(string tag)
+    {
+        if (!FileExist(CONFIG_PATH))
+        {
+            return "";
+        }
+
+        if (!FileExist(BACKUP_ROOT))
+        {
+            MakeDirectory(BACKUP_ROOT);
+        }
+
+        string backupPath = BACKUP_ROOT + "/EventConfig_v" + tag + "_" + GetFileTimestamp() + ".json";
+
+        FileHandle srcFile = OpenFile(CONFIG_PATH, FileMode.READ);
+
+        if (srcFile == 0)
+        {
+            Log("ERRO: não foi possível ler o EventConfig.json para backup.");
+            return "";
+        }
+
+        FileHandle dstFile = OpenFile(backupPath, FileMode.WRITE);
+
+        if (dstFile == 0)
+        {
+            CloseFile(srcFile);
+            Log("ERRO: não foi possível criar o arquivo de backup: " + backupPath);
+            return "";
+        }
+
+        string line;
+
+        while (FGets(srcFile, line) >= 0)
+        {
+            FPrintln(dstFile, line);
+        }
+
+        CloseFile(srcFile);
+        CloseFile(dstFile);
+
+        Log("Backup do EventConfig.json criado em: " + backupPath);
+        return backupPath;
+    }
+
+    string GetFileTimestamp()
+    {
+        int year, month, day, hour, minute, second;
+        GetYearMonthDay(year, month, day);
+        GetHourMinuteSecond(hour, minute, second);
+        return string.Format("%1-%2-%3_%4-%5-%6", year.ToStringLen(4), month.ToStringLen(2), day.ToStringLen(2), hour.ToStringLen(2), minute.ToStringLen(2), second.ToStringLen(2));
+    }
+
     void LoadConfig()
     {
         if (FileExist(CONFIG_PATH)) 
         {
             JsonFileLoader<SDN_ContainerEventConfig>.JsonLoadFile(CONFIG_PATH, m_Config);
-            
-            if (m_Config && m_Config.LootContainerObject == "CONTAINER_Chest")
+
+            if (!m_Config)
             {
-                m_Config.LootContainerObject = "StorageBox_Wooden";
+                // JSON ilegível/corrompido: guarda uma cópia antes de recriar, para o admin não perder nada
+                BackupConfigFile("corrompido");
+                CreateDefaultConfig();
                 JsonFileLoader<SDN_ContainerEventConfig>.JsonSaveFile(CONFIG_PATH, m_Config);
-                Log("Updated legacy config: Loot box changed to StorageBox_Wooden.");
+                Log("EventConfig.json ilegível. Backup salvo e configuração padrão recriada.");
             }
-            Log("Configuration loaded.");
+            else
+            {
+                // Atualização de versão: backup ANTES de reescrever o arquivo.
+                // Os valores do admin são mantidos; campos novos entram com o padrão; campos removidos saem do JSON.
+                if (m_Config.ConfigVersion != CONFIG_VERSION)
+                {
+                    string oldVersion = m_Config.ConfigVersion;
+
+                    if (oldVersion == "")
+                    {
+                        oldVersion = "legado";
+                    }
+
+                    string backupPath = BackupConfigFile(oldVersion);
+
+                    if (backupPath != "")
+                    {
+                        m_Config.ConfigVersion = CONFIG_VERSION;
+                        JsonFileLoader<SDN_ContainerEventConfig>.JsonSaveFile(CONFIG_PATH, m_Config);
+                        Log("Configuração atualizada de v" + oldVersion + " para v" + CONFIG_VERSION + ". Suas configurações foram mantidas.");
+                    }
+                    else
+                    {
+                        Log("AVISO: backup falhou. O EventConfig.json NÃO foi reescrito (mantido como está).");
+                    }
+                }
+
+                if (m_Config.LootContainerObject == "CONTAINER_Chest")
+                {
+                    m_Config.LootContainerObject = "StorageBox_Wooden";
+                    JsonFileLoader<SDN_ContainerEventConfig>.JsonSaveFile(CONFIG_PATH, m_Config);
+                    Log("Updated legacy config: Loot box changed to StorageBox_Wooden.");
+                }
+
+                Log("Configuration loaded (v" + m_Config.ConfigVersion + ").");
+            }
         } 
         else 
         {
@@ -1831,6 +1977,11 @@ class SDN_ContainerEventManager
             }
 
             evt.SceneObjects.Insert(obj);
+
+            if (isP3D)
+            {
+                evt.P3DPositions.Insert(obj.GetPosition());
+            }
         }
 
         GetGame().ObjectDelete(conv);
@@ -2048,8 +2199,19 @@ class SDN_ContainerEventManager
             soundEnabled = m_Config.EnableSound;
         }
 
+        bool notificationsEnabled = true;
+
+        if (m_Config && !m_Config.EnableNotifications)
+        {
+            notificationsEnabled = false;
+        }
+
         array<Man> players = new array<Man>;
-        GetGame().GetPlayers(players);
+
+        if (notificationsEnabled)
+        {
+            GetGame().GetPlayers(players);
+        }
 
         foreach (Man player : players)
         {
